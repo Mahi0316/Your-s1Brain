@@ -15,7 +15,13 @@ dotenv.config();
 connectDB();
 
 const app = express();
-app.use(cors());
+import cors from "cors";
+
+app.use(cors({
+  origin: "*",    // When deployed, replace * with Vercel URL
+  credentials: true
+}));
+
 app.use(express.json());
 
 // ROUTES
