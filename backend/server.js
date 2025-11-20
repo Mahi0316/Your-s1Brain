@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
-
+import exportRoutes from "./routes/exportRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import questionRoutes from "./routes/questionRoutes.js";
@@ -26,7 +26,7 @@ app.use("/api/classrooms", classroomRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/testrooms", testRoomRoutes); // ✅ CRITICAL LINE ADDED
-
+app.use("/api/export", exportRoutes);
 app.get("/", (req, res) => res.send("Your's Brain API Running ✔"));
 
 const PORT = process.env.PORT || 5000;

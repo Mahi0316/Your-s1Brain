@@ -9,34 +9,54 @@ export default function JoinClassroom({ user }) {
   const [joined, setJoined] = useState([]);
   const [selectedClassroom, setSelectedClassroom] = useState(null);
   const [tests, setTests] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // ✅ Correct useEffect (ONLY load joined classrooms)
   useEffect(() => {
-    if (user?._id) fetchJoined();
-  }, [user]);
+    if (!user?._id) return;
+    fetchJoined();
+  }, [user?._id]);
 
+  // ----------------------------------------------------
+  // FETCH JOINED CLASSROOMS
+  // ----------------------------------------------------
   async function fetchJoined() {
     try {
+      setLoading(true);
       const res = await API.get("/classrooms/student");
       setJoined(res.data || []);
     } catch (e) {
+      console.error("Error loading joined classrooms", e);
       setJoined([]);
+    } finally {
+      setLoading(false);
     }
   }
 
+  // ----------------------------------------------------
+  // JOIN CLASSROOM BY CODE
+  // ----------------------------------------------------
   async function joinByCode(e) {
     e.preventDefault();
     if (!code.trim()) return alert("Enter a code!");
 
     try {
+      setLoading(true);
       await API.post("/classrooms/join", { code });
+
       alert("Joined classroom!");
       setCode("");
       fetchJoined();
     } catch (err) {
       alert("Join failed: " + err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
+  // ----------------------------------------------------
+  // OPEN CLASSROOM → LOAD TESTS
+  // ----------------------------------------------------
   async function openClassroom(c) {
     setSelectedClassroom(c);
 
@@ -44,38 +64,43 @@ export default function JoinClassroom({ user }) {
       const res = await API.get(`/classrooms/${c._id}`);
       setTests(res.data.tests || []);
     } catch (e) {
+      console.error("Failed to load tests");
       setTests([]);
     }
   }
 
-  // ⭐ FIXED — Now testId always exists
-async function startTest(test) {
-  if (!test?._id) {
-    alert("Test ID missing!");
-    return;
+  // ----------------------------------------------------
+  // START TEST
+  // ----------------------------------------------------
+  async function startTest(test) {
+    if (!test?._id) {
+      alert("Test ID missing!");
+      return;
+    }
+
+    try {
+      const res = await API.get(`/testrooms/get-test/${test._id}`);
+
+      sessionStorage.setItem(
+        "assigned_test",
+        JSON.stringify({
+          testId: test._id,
+          classroomId: selectedClassroom._id,
+          title: test.title,
+          duration: test.durationSeconds,
+          questions: res.data.questions,
+        })
+      );
+
+      window.location.href = "/student-test";
+    } catch (err) {
+      alert("Unable to load test questions.");
+    }
   }
 
-  try {
-    const res = await API.get(`/testrooms/get-test/${test._id}`);
-
-    sessionStorage.setItem(
-      "assigned_test",
-      JSON.stringify({
-        testId: test._id,
-        classroomId: selectedClassroom._id,
-        title: test.title,
-        duration: test.durationSeconds,
-        questions: res.data.questions, // contains _id, q, opts, a
-      })
-    );
-
-    window.location.href = "/student-test";
-  } catch (err) {
-    alert("Unable to load test questions.");
-  }
-}
-
-
+  // ----------------------------------------------------
+  // UI
+  // ----------------------------------------------------
   return (
     <div className="bg-white p-6 mt-6 rounded-2xl shadow">
       <h3 className="text-lg font-bold flex gap-2 items-center">
@@ -89,8 +114,11 @@ async function startTest(test) {
           className="border p-2 flex-1 rounded"
           placeholder="Classroom code"
         />
-        <button className="bg-indigo-600 text-white px-4 py-2 rounded">
-          Join
+        <button
+          className="bg-indigo-600 text-white px-4 py-2 rounded"
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="animate-spin" /> : "Join"}
         </button>
       </form>
 

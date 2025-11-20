@@ -4,7 +4,9 @@ import TestRoom from "../models/TestRoom.js";
 import Test from "../models/Test.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Result from "../models/Result.js";
 
+import Classroom from "../models/Classroom.js";
 // ---------------------- REGISTER TEACHER -----------------------
 export const registerTeacher = async (req, res) => {
   try {
@@ -60,27 +62,43 @@ export const getStudentsOfTeacher = async (req, res) => {
   try {
     const teacherId = req.user.id;
 
-    const rooms = await TestRoom.find({ teacherId }).populate("students");
+    // 1️⃣ Get all classrooms created by this teacher
+    const classrooms = await Classroom.find({ teacherId });
 
-    const allStudents = rooms.flatMap(r => r.students);
+    // 2️⃣ Collect student IDs from those classrooms
+    const allStudentIds = classrooms.flatMap(c => c.students);
 
-    res.json(allStudents);
+    // 3️⃣ Fetch actual student objects
+    const students = await Student.find({ _id: { $in: allStudentIds } });
+
+    res.json(students);
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+
+// ---------------------- GET TEACHER RESULTS -----------------------
 // ---------------------- GET TEACHER RESULTS -----------------------
 export const getTeacherResults = async (req, res) => {
   try {
     const teacherId = req.user.id;
 
-    const rooms = await TestRoom.find({ teacherId }).populate("tests");
+    // Get all classrooms of this teacher
+    const classrooms = await Classroom.find({ teacherId });
+    const classroomIds = classrooms.map(c => c._id);
 
-    const allTests = rooms.flatMap(r => r.tests);
+    // Fetch ALL results for ALL classrooms owned by this teacher
+    const results = await Result.find({ classroomId: { $in: classroomIds } })
+      .populate("studentId", "name email")
+      .populate("testId", "title");
 
-    res.json(allTests);
+    res.json(results);
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: "Failed to load teacher results" });
   }
 };
+

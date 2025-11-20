@@ -52,13 +52,13 @@ export default function StudentDashboard({ user }) {
     loadResults();
   }, [user]);
 
-  // 🔹 Load joined classrooms
+  // 🔹 Load joined classrooms ( 🔥 FIXED API ENDPOINT )
   useEffect(() => {
     if (!user?._id) return;
 
     async function loadMyClasses() {
       try {
-        const res = await API.get("/classrooms/my-classrooms");
+        const res = await API.get("/classrooms/student"); // ⭐ FIXED
         setMyClassrooms(res.data || []);
       } catch (err) {
         console.warn("Error loading joined classrooms", err);
@@ -68,7 +68,7 @@ export default function StudentDashboard({ user }) {
     loadMyClasses();
   }, [user]);
 
-  // 🔹 Start quiz for selected level (practice mode)
+  // 🔹 Start quiz (practice mode)
   const startLevel = async (lvl) => {
     setLevel(lvl);
     setIndex(0);
@@ -77,7 +77,6 @@ export default function StudentDashboard({ user }) {
 
     try {
       const res = await API.get(`/students/aptitude/${lvl}`);
-
       if (res.data?.length > 0) {
         setFetchedQuestions(
           res.data.map((q) => ({
@@ -97,7 +96,7 @@ export default function StudentDashboard({ user }) {
     setTimerRunning(true);
   };
 
-  // 🔹 Timer effect
+  // 🔹 Timer
   useEffect(() => {
     if (!timerRunning || timeLeft === null) return;
 
@@ -110,7 +109,7 @@ export default function StudentDashboard({ user }) {
     return () => clearTimeout(t);
   }, [timerRunning, timeLeft]);
 
-  // 🔹 When student clicks answer
+  // 🔹 Handle answer
   const handleAnswer = (choice) => {
     const qs = fetchedQuestions || FALLBACK_QUESTIONS[level];
 
@@ -120,7 +119,7 @@ export default function StudentDashboard({ user }) {
     else finishQuiz(qs);
   };
 
-  // 🔹 Finish + Save result
+  // 🔹 Save result
   async function finishQuiz(qs = null) {
     const questions = qs || fetchedQuestions || FALLBACK_QUESTIONS[level];
 
@@ -128,7 +127,7 @@ export default function StudentDashboard({ user }) {
     setTimerRunning(false);
 
     try {
-      await API.post("/results", {
+      await API.post("/results/submit", {
         studentId: user._id,
         level,
         score,
@@ -138,32 +137,6 @@ export default function StudentDashboard({ user }) {
       console.warn("Saving result failed", e);
     }
   }
-
-  // 🔹 Load assigned test from teacher
-  useEffect(() => {
-    const raw = sessionStorage.getItem("current_test_questions");
-    if (!raw) return;
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      setFetchedQuestions(parsed.questions);
-      setLevel(parsed.title);
-      setIndex(0);
-      setScore(0);
-
-      const duration = parsed.durationSeconds ?? parsed.duration ?? 60;
-      setTimeLimit(duration);
-      setTimeLeft(duration);
-      setTimerRunning(true);
-
-      setIsClassroomTest(true);
-    } catch (err) {
-      console.warn("Failed to load assigned test", err);
-    }
-
-    sessionStorage.removeItem("current_test_questions");
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -186,47 +159,53 @@ export default function StudentDashboard({ user }) {
             <JoinClassroom user={user} />
 
             {/* Joined Classrooms */}
-            <div className="bg-white rounded-2xl shadow-md mt-6 p-5">
-              <h3 className="text-lg font-semibold mb-3">📚 Joined Classrooms</h3>
+{/* Joined Classrooms */}
+<div className="bg-white rounded-2xl shadow-md mt-6 p-5">
+  <h3 className="text-lg font-semibold mb-3">📚 Joined Classrooms</h3>
 
-              {myClassrooms.length === 0 ? (
-                <p className="text-sm text-gray-500">No classrooms joined.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {myClassrooms.map((c) => (
-                    <li
-                      key={c._id}
-                      className="p-3 bg-gray-50 rounded-xl border flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-semibold text-gray-700">{c.name}</div>
-                        <div className="text-gray-500 text-xs">Code: {c.code}</div>
-                      </div>
+  {myClassrooms.length === 0 ? (
+    <p className="text-sm text-gray-500">No classrooms joined.</p>
+  ) : (
+    <ul className="space-y-3">
+      {myClassrooms.map((c) => (
+        <li
+          key={c._id}
+          className="p-3 bg-gray-50 rounded-xl border flex justify-between items-center"
+        >
+          <div>
+            <div className="font-semibold text-gray-700">{c.name}</div>
+            <div className="text-gray-500 text-xs">Code: {c.code}</div>
+          </div>
 
-                      <button
-                        className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        onClick={async () => {
-                          if (!confirm("Leave this classroom?")) return;
+          <button
+            className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+            onClick={async () => {
+              if (!confirm("Leave this classroom?")) return;
 
-                          try {
-                            await API.post("/students/leave-classroom", {
-                              classroomId: c._id,
-                            });
+              try {
+                await API.post("/students/leave-classroom", {
+                  classroomId: c._id,
+                });
 
-                            alert("Left classroom!");
-                            setMyClassrooms(myClassrooms.filter((x) => x._id !== c._id));
-                          } catch (err) {
-                            alert("Error leaving classroom");
-                          }
-                        }}
-                      >
-                        Leave
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                alert("Left classroom!");
+
+                // Remove from UI instantly
+                setMyClassrooms((prev) =>
+                  prev.filter((x) => x._id !== c._id)
+                );
+              } catch (err) {
+                alert("Error leaving classroom");
+              }
+            }}
+          >
+            Leave
+          </button>
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
 
             {/* Recent results */}
             <div className="bg-white rounded-2xl shadow-md mt-6 p-5">
@@ -238,40 +217,43 @@ export default function StudentDashboard({ user }) {
               {recentResults.length === 0 ? (
                 <p className="text-sm text-gray-500">No results yet.</p>
               ) : (
-                <ul className="space-y-3 text-sm">
-                  {recentResults.map((r) => (
-                    <li
-                      key={r._id}
-                      className="p-3 bg-gray-50 rounded-lg border flex flex-col"
-                    >
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-800">
-                          {r.level && (
-                            <span className="capitalize">Aptitude – {r.level}</span>
-                          )}
+<div className="max-h-60 overflow-y-auto pr-2">
+  <ul className="space-y-3 text-sm">
+    {recentResults.slice(0, 3).map((r) => (
+      <li
+        key={r._id}
+        className="p-3 bg-gray-50 rounded-lg border flex flex-col"
+      >
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-800">
+            {r.level && (
+              <span className="capitalize">Aptitude – {r.level}</span>
+            )}
 
-                          {!r.level && r.testId?.title && (
-                            <span>{r.testId.title}</span>
-                          )}
-                        </span>
+            {!r.level && r.testId?.title && (
+              <span>{r.testId.title}</span>
+            )}
+          </span>
 
-                        <span className="font-bold text-indigo-600">
-                          {r.score}/{r.total}
-                        </span>
-                      </div>
+          <span className="font-bold text-indigo-600">
+            {r.score}/{r.total}
+          </span>
+        </div>
 
-                      {!r.level && r.classroomId?.name && (
-                        <span className="text-gray-500 text-xs mt-1">
-                          Classroom: {r.classroomId.name}
-                        </span>
-                      )}
+        {!r.level && r.classroomId?.name && (
+          <span className="text-gray-500 text-xs mt-1">
+            Classroom: {r.classroomId.name}
+          </span>
+        )}
 
-                      <span className="text-gray-400 text-xs mt-1">
-                        {new Date(r.createdAt).toLocaleString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+        <span className="text-gray-400 text-xs mt-1">
+          {new Date(r.createdAt).toLocaleString()}
+        </span>
+      </li>
+    ))}
+  </ul>
+</div>
+
               )}
             </div>
           </div>
@@ -372,8 +354,7 @@ export default function StudentDashboard({ user }) {
                   <span className="font-semibold text-indigo-600">
                     {score}
                   </span>{" "}
-                  /
-                  {(fetchedQuestions || FALLBACK_QUESTIONS[level]).length}
+                  /{(fetchedQuestions || FALLBACK_QUESTIONS[level]).length}
                 </p>
 
                 <div className="mt-5 flex justify-center gap-4">
@@ -387,15 +368,8 @@ export default function StudentDashboard({ user }) {
                   <button
                     className="flex items-center gap-2 border px-6 py-2 rounded-lg text-gray-600"
                     onClick={() => {
-                      if (isClassroomTest) {
-                        setIsClassroomTest(false);
-                        setFetchedQuestions(null);
-                        setLevel(null);
-                        setShowResult(false);
-                      } else {
-                        setLevel(null);
-                        setShowResult(false);
-                      }
+                      setLevel(null);
+                      setShowResult(false);
                     }}
                   >
                     <ArrowLeftCircle className="w-4 h-4" /> Back

@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema({
-  name: String,
-  email: { type: String, unique: true },
-  password: String,
-  role: { type: String, default: "student" }
-});
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
 
-const Model = mongoose.model("Student", studentSchema);
-export default Model;
+  // CLASSROOMS JOINED BY STUDENT
+  classrooms: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "Classroom" }
+  ],
+},
+{ timestamps: true });
+
+export default mongoose.model("Student", studentSchema);

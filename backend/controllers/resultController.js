@@ -73,31 +73,34 @@ export const submitTest = async (req, res) => {
     const { testId, classroomId, answers } = req.body;
     const studentId = req.user.id;
 
-    const test = await Test.findById(testId).populate("questions");
+    // Load test including teacherId + questions
+    const test = await Test.findById(testId)
+      .populate("questions")
+      .populate("teacherId");  // ⭐ VERY IMPORTANT
 
-    if (!test) {
-      return res.status(404).json({ message: "Test not found" });
-    }
+    if (!test) return res.status(404).json({ message: "Test not found" });
 
     let score = 0;
 
     test.questions.forEach((q) => {
-      const found = answers.find((a) => a.questionId == q._id.toString());
-      if (found && Number(found.selectedIndex) === Number(q.correctIndex)) {
+      const a = answers.find((x) => x.questionId == q._id.toString());
+      if (a && Number(a.selectedIndex) === Number(q.correctIndex)) {
         score++;
       }
     });
 
     const result = await Result.create({
       studentId,
+      teacherId: test.teacherId,   // ⭐ FIXED
+      classroomId,                 // ⭐ MUST come from frontend
       testId,
-      classroomId,
       score,
       total: test.questions.length,
     });
 
-    res.json({ result });
+    res.json({ success: true, result });
   } catch (err) {
+    console.error("submitTest error:", err);
     res.status(500).json({ message: err.message });
   }
 };

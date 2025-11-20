@@ -13,6 +13,7 @@ router.post("/register", registerTeacher);
 router.post("/login", loginTeacher);
 
 router.get("/students", protect, getStudentsOfTeacher);
-router.get("/results", protect, getTeacherResults);
+router.get("/results/all", protect, getTeacherResults);
+
 
 export default router;

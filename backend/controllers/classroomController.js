@@ -32,16 +32,27 @@ export const createClassroom = async (req, res) => {
 export const joinClassroom = async (req, res) => {
   try {
     const { code } = req.body;
+    const studentId = req.user.id;
 
     const classroom = await Classroom.findOne({ code });
     if (!classroom) return res.status(404).json({ message: "Invalid code" });
 
-    if (!classroom.students.includes(req.user.id)) {
-      classroom.students.push(req.user.id);
+    // 1️⃣ Add student to classroom
+    if (!classroom.students.includes(studentId)) {
+      classroom.students.push(studentId);
       await classroom.save();
     }
 
-    res.json({ message: "Joined", classroom });
+    // 2️⃣ Add classroom to student
+    const student = await Student.findById(studentId);
+
+    if (!student.classrooms.includes(classroom._id)) {
+      student.classrooms.push(classroom._id);
+      await student.save();
+    }
+
+    res.json({ message: "Joined classroom successfully", classroom });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
